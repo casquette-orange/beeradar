@@ -1,12 +1,11 @@
 const button = document.getElementById("searchButton");
 const statusDiv = document.getElementById("status");
 const compass = document.getElementById("compass");
+const debugDiv = document.getElementById("debug");
 
 let targetBearing = 0;
 
 button.addEventListener("click", async () => {
-
-    await enableCompass();
 
     statusDiv.innerHTML =
         "Recherche de votre position...";
@@ -27,34 +26,6 @@ button.addEventListener("click", async () => {
         }
     );
 });
-
-async function enableCompass() {
-
-    try {
-
-        if (
-            typeof DeviceOrientationEvent !== "undefined"
-            &&
-            typeof DeviceOrientationEvent.requestPermission === "function"
-        ) {
-
-            const permission =
-                await DeviceOrientationEvent.requestPermission();
-
-            if (permission !== "granted") {
-
-                statusDiv.innerHTML =
-                    "Permission boussole refusée";
-
-                return;
-            }
-        }
-
-    } catch (e) {
-
-        console.error(e);
-    }
-}
 
 async function onSuccess(position) {
 
@@ -96,12 +67,12 @@ async function onSuccess(position) {
             );
 
         statusDiv.innerHTML = `
-            <div style="font-size:34px;">
+            <div style="font-size:32px;">
                 🍺
             </div>
 
             <div style="
-                font-size:36px;
+                font-size:clamp(24px, 6vw, 40px);
                 font-weight:bold;
                 margin-top:10px;
             ">
@@ -109,7 +80,7 @@ async function onSuccess(position) {
             </div>
 
             <div style="
-                font-size:60px;
+                font-size:clamp(40px, 10vw, 70px);
                 margin-top:20px;
             ">
                 ${nearestBar.distance.toFixed(0)} m
@@ -136,13 +107,13 @@ async function getNearbyBars(lat, lon) {
     const radius = 1000;
 
     const query = `
-        [out:json];
-        (
-            node["amenity"="bar"](around:${radius},${lat},${lon});
-            node["amenity"="pub"](around:${radius},${lat},${lon});
-        );
-        out body;
-    `;
+[out:json];
+(
+  node["amenity"="bar"](around:${radius},${lat},${lon});
+  node["amenity"="pub"](around:${radius},${lat},${lon});
+);
+out body;
+`;
 
     const response = await fetch(
         "https://overpass-api.de/api/interpreter",
@@ -211,54 +182,23 @@ function calculateBearing(
     const λ2 = toRadians(lon2);
 
     const y =
-        Math.sin(λ2 - λ1)
-        * Math.cos(φ2);
+        Math.sin(λ2 - λ1) *
+        Math.cos(φ2);
 
     const x =
-        Math.cos(φ1)
-        * Math.sin(φ2)
+        Math.cos(φ1) *
+        Math.sin(φ2)
         -
-        Math.sin(φ1)
-        * Math.cos(φ2)
-        * Math.cos(λ2 - λ1);
+        Math.sin(φ1) *
+        Math.cos(φ2) *
+        Math.cos(λ2 - λ1);
 
     let bearing =
-        Math.atan2(y, x)
-        * 180
-        / Math.PI;
+        Math.atan2(y, x) *
+        180 / Math.PI;
 
-    bearing =
-        (bearing + 360)
-        % 360;
-
-    return bearing;
+    return (bearing + 360) % 360;
 }
-
-function shortestAngle(
-    target,
-    current
-) {
-
-    let delta =
-        target - current;
-
-    delta =
-        ((delta + 540) % 360)
-        - 180;
-
-    return delta;
-}
-
-window.addEventListener(
-    "deviceorientation",
-    (event) => {
-
-        statusDiv.innerHTML = `
-            alpha : ${event.alpha}<br>
-            absolute : ${event.absolute}
-        `;
-    }
-);
 
 function haversineDistance(
     lat1,
@@ -276,22 +216,14 @@ function haversineDistance(
         toRadians(lon2 - lon1);
 
     const a =
-        Math.sin(dLat / 2) ** 2
-        +
-        Math.cos(
-            toRadians(lat1)
-        )
-        *
-        Math.cos(
-            toRadians(lat2)
-        )
-        *
-        Math.sin(
-            dLon / 2
-        ) ** 2;
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) ** 2;
 
     const c =
-        2 * Math.atan2(
+        2 *
+        Math.atan2(
             Math.sqrt(a),
             Math.sqrt(1 - a)
         );
@@ -302,11 +234,22 @@ function haversineDistance(
 function toRadians(degrees) {
 
     return degrees *
-        Math.PI /
-        180;
+        Math.PI / 180;
 }
 
-console.log(
-    event.alpha,
-    event.absolute
+window.addEventListener(
+    "deviceorientation",
+    (event) => {
+
+        if (event.alpha == null)
+            return;
+
+        debugDiv.innerHTML = `
+            alpha : ${event.alpha.toFixed(1)}°<br>
+            absolute : ${event.absolute}
+        `;
+
+        compass.style.transform =
+            `rotate(${event.alpha}deg)`;
+    }
 );
