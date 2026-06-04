@@ -253,20 +253,10 @@ window.addEventListener(
     "deviceorientation",
     (event) => {
 
-        if (event.alpha == null)
-            return;
-
-        const heading =
-            event.alpha;
-
-        const rotation =
-            shortestAngle(
-                targetBearing,
-                heading
-            );
-
-        compass.style.transform =
-            `rotate(${rotation}deg)`;
+        statusDiv.innerHTML = `
+            alpha : ${event.alpha}<br>
+            absolute : ${event.absolute}
+        `;
     }
 );
 
@@ -315,3 +305,8 @@ function toRadians(degrees) {
         Math.PI /
         180;
 }
+
+console.log(
+    event.alpha,
+    event.absolute
+);
