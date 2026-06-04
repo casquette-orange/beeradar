@@ -1,6 +1,7 @@
 # V0.1 - 2025-06-05
-- l'appli fonctionne sur chrome sur mon android
+- l'appli fonctionne sur chrome sur mon android, pas sur brave
 
 ### prochaines améliorations
-- regler fleche qui fait un tour sur elle meme lorsque la direction passe de 0 à 360 degres
-- rendre dynamique la distance affichée entre le user et le bar
+- rendre fonctionnel sur brave
+- rendre fonctionnel sur iphone (safari ?)
+- creer une app telechargeable sur app stores
