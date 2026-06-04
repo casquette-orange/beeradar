@@ -46,7 +46,7 @@ async function initDeviceOrientation() {
             const permission = await DeviceOrientationEvent.requestPermission();
 
             if (permission === "granted") {
-                window.addEventListener("deviceorientation", onDeviceOrientation);
+                addOrientationListeners();
                 orientationListenerAdded = true;
             } else {
                 debugDiv.innerHTML =
@@ -58,12 +58,17 @@ async function initDeviceOrientation() {
                 "Impossible d'accéder au capteur d'orientation — vérifiez Brave / Shields et HTTPS.";
         }
     } else if (typeof DeviceOrientationEvent !== "undefined") {
-        window.addEventListener("deviceorientation", onDeviceOrientation);
+        addOrientationListeners();
         orientationListenerAdded = true;
     } else {
         debugDiv.innerHTML =
             "Capteur d'orientation non disponible sur ce navigateur. La boussole ne fonctionnera pas.";
     }
+}
+
+function addOrientationListeners() {
+    window.addEventListener("deviceorientation", onDeviceOrientation);
+    window.addEventListener("deviceorientationabsolute", onDeviceOrientation);
 }
 
 async function onSuccess(position) {
@@ -101,185 +106,20 @@ function onError(error) {
     statusDiv.innerHTML = `Erreur GPS : ${error.message}`;
 }
 
-async function getNearbyBars(lat, lon) {
-    const radius = 1000;
-
-    const query = `
-[out:json];
-(
-  node["amenity"="bar"](around:${radius},${lat},${lon});
-  node["amenity"="pub"](around:${radius},${lat},${lon});
-);
-out body;
-`;
-
-    const response = await fetch(
-        "https://overpass-api.de/api/interpreter",
-        {
-            method: "POST",
-            body: query
-        }
-    );
-
-    if (!response.ok) {
-        throw new Error(`Service Overpass indisponible (${response.status})`);
+function getHeadingFromEvent(event) {
+    if (typeof event.webkitCompassHeading === "number") {
+        return normalizeAngle(event.webkitCompassHeading);
     }
 
-    const data = await response.json();
-
-    if (!data?.elements || !Array.isArray(data.elements)) {
-        throw new Error("Réponse invalide du service de recherche");
+    if (typeof event.alpha !== "number") {
+        return null;
     }
 
-    return data.elements.filter(
-        (element) =>
-            typeof element.lat === "number" &&
-            typeof element.lon === "number"
-    );
-}
-
-function findNearestBar(userLat, userLon, bars) {
-    let nearest = null;
-    let minDistance = Infinity;
-
-    for (const bar of bars) {
-        const distance = haversineDistance(
-            userLat,
-            userLon,
-            bar.lat,
-            bar.lon
-        );
-
-        if (distance < minDistance) {
-            minDistance = distance;
-            nearest = {
-                name: bar.tags?.name || "Bar inconnu",
-                lat: bar.lat,
-                lon: bar.lon,
-                distance
-            };
-        }
-    }
-
-    return nearest;
-}
-
-function updateBarState(userLat, userLon) {
-    if (!nearestBar) {
-        return;
-    }
-
-    nearestBar.distance = haversineDistance(
-        userLat,
-        userLon,
-        nearestBar.lat,
-        nearestBar.lon
-    );
-
-    targetBearing = calculateBearing(
-        userLat,
-        userLon,
-        nearestBar.lat,
-        nearestBar.lon
-    );
-}
-
-function renderStatus() {
-    if (!nearestBar) {
-        statusDiv.innerHTML = "Aucun bar à afficher.";
-        return;
-    }
-
-    statusDiv.innerHTML = `
-        <div style="font-size:32px;">🍺</div>
-        <div style="
-            font-size:clamp(24px, 6vw, 40px);
-            font-weight:bold;
-            margin-top:10px;
-        ">
-            ${nearestBar.name}
-        </div>
-        <div style="
-            font-size:clamp(40px, 10vw, 70px);
-            margin-top:20px;
-        ">
-            ${nearestBar.distance.toFixed(0)} m
-        </div>
-        <div style="margin-top:12px; font-size:1rem; opacity:0.9;">
-            Tournez votre téléphone pour pointer vers le bar.
-        </div>
-    `;
-}
-
-function startLocationWatcher() {
-    if (!navigator.geolocation || watchId !== null) {
-        return;
-    }
-
-    watchId = navigator.geolocation.watchPosition(
-        onPositionUpdate,
-        onError,
-        {
-            enableHighAccuracy: true,
-            maximumAge: 1000,
-            timeout: 10000
-        }
-    );
-}
-
-function onPositionUpdate(position) {
-    const userLat = position.coords.latitude;
-    const userLon = position.coords.longitude;
-
-    if (!nearestBar) {
-        return;
-    }
-
-    updateBarState(userLat, userLon);
-    renderStatus();
-    updateCompass();
-}
-
-function calculateBearing(lat1, lon1, lat2, lon2) {
-    const φ1 = toRadians(lat1);
-    const φ2 = toRadians(lat2);
-
-    const λ1 = toRadians(lon1);
-    const λ2 = toRadians(lon2);
-
-    const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
-    const x =
-        Math.cos(φ1) * Math.sin(φ2) -
-        Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1);
-
-    let bearing = (Math.atan2(y, x) * 180) / Math.PI;
-    return (bearing + 360) % 360;
-}
-
-function haversineDistance(lat1, lon1, lat2, lon2) {
-    const R = 6371000;
-    const dLat = toRadians(lat2 - lat1);
-    const dLon = toRadians(lon2 - lon1);
-
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRadians(lat1)) *
-        Math.cos(toRadians(lat2)) *
-        Math.sin(dLon / 2) ** 2;
-
-    const c =
-        2 *
-        Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c;
-}
-
-function toRadians(degrees) {
-    return (degrees * Math.PI) / 180;
+    return normalizeAngle(event.alpha);
 }
 
 function onDeviceOrientation(event) {
-    const heading = event.webkitCompassHeading ?? event.alpha;
+    const heading = getHeadingFromEvent(event);
 
     if (heading == null) {
         return;
@@ -288,12 +128,8 @@ function onDeviceOrientation(event) {
     currentHeading = heading;
     updateCompass();
 
-    const compassHeading = typeof event.webkitCompassHeading === "number"
-        ? event.webkitCompassHeading
-        : event.alpha;
-
     debugDiv.innerHTML = `
-        heading : ${compassHeading.toFixed(1)}°<br>
+        heading : ${heading.toFixed(1)}°<br>
         absolute : ${event.absolute}
     `;
 }
@@ -303,8 +139,12 @@ function updateCompass() {
         return;
     }
 
-    const rotation = targetBearing - currentHeading;
-    compass.style.transform = `rotate(${rotation}deg)`;
+    const direction = normalizeAngle(targetBearing - currentHeading);
+    compass.style.transform = `rotate(${direction}deg)`;
+}
+
+function normalizeAngle(angle) {
+    return ((angle % 360) + 360) % 360;
 }
 
 window.addEventListener("load", () => {
