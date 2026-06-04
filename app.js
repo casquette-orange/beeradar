@@ -5,6 +5,7 @@ const debugDiv = document.getElementById("debug");
 
 let targetBearing = null;
 let currentHeading = null;
+let compassRotation = 0;
 let orientationListenerAdded = false;
 let watchId = null;
 let nearestBar = null;
@@ -298,8 +299,10 @@ function updateCompass() {
         return;
     }
 
-    const rotation = getShortestRotation(targetBearing, currentHeading);
-    compass.style.transform = `rotate(${rotation}deg)`;
+    const desiredRotation = getShortestRotation(targetBearing, currentHeading);
+    const rotationDelta = getShortestRotation(desiredRotation, compassRotation);
+    compassRotation += rotationDelta;
+    compass.style.transform = `rotate(${compassRotation}deg)`;
 }
 
 function getShortestRotation(target, current) {
