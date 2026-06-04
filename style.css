@@ -11,7 +11,7 @@ body {
     justify-content: center;
     align-items: center;
 
-    height: 100vh;
+    min-height: 100vh;
 }
 
 .container {
@@ -21,7 +21,7 @@ body {
 }
 
 h1 {
-    margin-bottom: 40px;
+    margin-bottom: 30px;
 }
 
 button {
@@ -35,10 +35,23 @@ button {
     cursor: pointer;
 }
 
+#compass {
+
+    font-size: 140px;
+
+    margin-top: 20px;
+    margin-bottom: 20px;
+
+    transition: transform 0.2s linear;
+
+    user-select: none;
+}
+
 #status {
-    margin-top: 30px;
 
-    font-size: 18px;
+    margin-top: 20px;
 
-    word-break: break-word;
+    font-size: 20px;
+
+    line-height: 1.6;
 }
