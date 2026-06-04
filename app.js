@@ -229,13 +229,15 @@ window.addEventListener(
     "deviceorientation",
     (event) => {
 
+        statusDiv.innerHTML =
+            `
+            alpha=${event.alpha}<br>
+            beta=${event.beta}<br>
+            gamma=${event.gamma}
+            `;
+
         if (event.alpha == null)
             return;
-
-        statusDiv.innerHTML = `
-            Orientation téléphone :
-            ${event.alpha.toFixed(0)}°
-        `;
 
         compass.style.transform =
             `rotate(${event.alpha}deg)`;
