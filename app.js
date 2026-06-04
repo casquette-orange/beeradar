@@ -6,13 +6,15 @@ let targetBearing = 0;
 
 button.addEventListener("click", async () => {
 
-    statusDiv.textContent =
+    await enableCompass();
+
+    statusDiv.innerHTML =
         "Recherche de votre position...";
 
     if (!navigator.geolocation) {
 
-        statusDiv.textContent =
-            "La géolocalisation n'est pas supportée.";
+        statusDiv.innerHTML =
+            "GPS non supporté";
 
         return;
     }
@@ -26,23 +28,54 @@ button.addEventListener("click", async () => {
     );
 });
 
+async function enableCompass() {
+
+    try {
+
+        if (
+            typeof DeviceOrientationEvent !== "undefined"
+            &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+        ) {
+
+            const permission =
+                await DeviceOrientationEvent.requestPermission();
+
+            if (permission !== "granted") {
+
+                statusDiv.innerHTML =
+                    "Permission boussole refusée";
+
+                return;
+            }
+        }
+
+    } catch (e) {
+
+        console.error(e);
+    }
+}
+
 async function onSuccess(position) {
 
     const userLat = position.coords.latitude;
     const userLon = position.coords.longitude;
 
     statusDiv.innerHTML =
-        "Position trouvée.<br>Recherche des bars...";
+        "Recherche des bars...";
 
     try {
 
         const bars =
-            await getNearbyBars(userLat, userLon);
+            await getNearbyBars(
+                userLat,
+                userLon
+            );
 
         if (bars.length === 0) {
 
-            statusDiv.textContent =
-                "Aucun bar trouvé.";
+            statusDiv.innerHTML =
+                "Aucun bar trouvé 🍺";
 
             return;
         }
@@ -54,7 +87,7 @@ async function onSuccess(position) {
                 bars
             );
 
-        const bearing =
+        targetBearing =
             calculateBearing(
                 userLat,
                 userLon,
@@ -62,39 +95,40 @@ async function onSuccess(position) {
                 nearestBar.lon
             );
 
-        targetBearing = bearing;
-
         statusDiv.innerHTML = `
-            <h3>🍺 Bar trouvé</h3>
+            <div style="font-size:34px;">
+                🍺
+            </div>
 
-            <b>${nearestBar.name}</b><br><br>
+            <div style="
+                font-size:36px;
+                font-weight:bold;
+                margin-top:10px;
+            ">
+                ${nearestBar.name}
+            </div>
 
-            Distance :
-            ${nearestBar.distance.toFixed(0)} m<br><br>
-
-            Cap :
-            ${bearing.toFixed(0)}°<br><br>
-
-            Latitude :
-            ${nearestBar.lat}<br>
-
-            Longitude :
-            ${nearestBar.lon}
+            <div style="
+                font-size:60px;
+                margin-top:20px;
+            ">
+                ${nearestBar.distance.toFixed(0)} m
+            </div>
         `;
 
     } catch (error) {
 
         console.error(error);
 
-        statusDiv.textContent =
-            "Erreur lors de la recherche des bars.";
+        statusDiv.innerHTML =
+            "Erreur lors de la recherche des bars";
     }
 }
 
 function onError(error) {
 
-    statusDiv.textContent =
-        `Erreur GPS : ${error.code} - ${error.message}`;
+    statusDiv.innerHTML =
+        `Erreur GPS : ${error.message}`;
 }
 
 async function getNearbyBars(lat, lon) {
@@ -123,7 +157,11 @@ async function getNearbyBars(lat, lon) {
     return data.elements;
 }
 
-function findNearestBar(userLat, userLon, bars) {
+function findNearestBar(
+    userLat,
+    userLon,
+    bars
+) {
 
     let nearestBar = null;
     let minDistance = Infinity;
@@ -143,10 +181,15 @@ function findNearestBar(userLat, userLon, bars) {
             minDistance = distance;
 
             nearestBar = {
-                name: bar.tags?.name || "Bar inconnu",
+
+                name:
+                    bar.tags?.name ||
+                    "Bar inconnu",
+
                 lat: bar.lat,
                 lon: bar.lon,
-                distance: distance
+
+                distance
             };
         }
     }
@@ -168,27 +211,64 @@ function calculateBearing(
     const λ2 = toRadians(lon2);
 
     const y =
-        Math.sin(λ2 - λ1) *
-        Math.cos(φ2);
+        Math.sin(λ2 - λ1)
+        * Math.cos(φ2);
 
     const x =
-        Math.cos(φ1) *
-        Math.sin(φ2)
+        Math.cos(φ1)
+        * Math.sin(φ2)
         -
-        Math.sin(φ1) *
-        Math.cos(φ2) *
-        Math.cos(λ2 - λ1);
+        Math.sin(φ1)
+        * Math.cos(φ2)
+        * Math.cos(λ2 - λ1);
 
     let bearing =
-        Math.atan2(y, x) *
-        180 /
-        Math.PI;
+        Math.atan2(y, x)
+        * 180
+        / Math.PI;
 
     bearing =
-        (bearing + 360) % 360;
+        (bearing + 360)
+        % 360;
 
     return bearing;
 }
+
+function shortestAngle(
+    target,
+    current
+) {
+
+    let delta =
+        target - current;
+
+    delta =
+        ((delta + 540) % 360)
+        - 180;
+
+    return delta;
+}
+
+window.addEventListener(
+    "deviceorientation",
+    (event) => {
+
+        if (event.alpha == null)
+            return;
+
+        const heading =
+            event.alpha;
+
+        const rotation =
+            shortestAngle(
+                targetBearing,
+                heading
+            );
+
+        compass.style.transform =
+            `rotate(${rotation}deg)`;
+    }
+);
 
 function haversineDistance(
     lat1,
@@ -206,10 +286,19 @@ function haversineDistance(
         toRadians(lon2 - lon1);
 
     const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRadians(lat1)) *
-        Math.cos(toRadians(lat2)) *
-        Math.sin(dLon / 2) ** 2;
+        Math.sin(dLat / 2) ** 2
+        +
+        Math.cos(
+            toRadians(lat1)
+        )
+        *
+        Math.cos(
+            toRadians(lat2)
+        )
+        *
+        Math.sin(
+            dLon / 2
+        ) ** 2;
 
     const c =
         2 * Math.atan2(
@@ -222,24 +311,7 @@ function haversineDistance(
 
 function toRadians(degrees) {
 
-    return degrees * Math.PI / 180;
+    return degrees *
+        Math.PI /
+        180;
 }
-
-window.addEventListener(
-    "deviceorientation",
-    (event) => {
-
-        statusDiv.innerHTML =
-            `
-            alpha=${event.alpha}<br>
-            beta=${event.beta}<br>
-            gamma=${event.gamma}
-            `;
-
-        if (event.alpha == null)
-            return;
-
-        compass.style.transform =
-            `rotate(${event.alpha}deg)`;
-    }
-);

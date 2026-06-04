@@ -36,14 +36,10 @@ button {
 }
 
 #compass {
-
-    font-size: 140px;
-
-    margin-top: 20px;
-    margin-bottom: 20px;
-
-    transition: transform 0.2s linear;
-
+    font-size: 180px;
+    margin-top: 30px;
+    margin-bottom: 30px;
+    transition: transform 0.1s linear;
     user-select: none;
 }
 
