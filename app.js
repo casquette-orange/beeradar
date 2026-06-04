@@ -3,16 +3,20 @@ const statusDiv = document.getElementById("status");
 const compass = document.getElementById("compass");
 const debugDiv = document.getElementById("debug");
 
+let nearestBar = null;
+
 button.addEventListener("click", () => {
 
     statusDiv.innerHTML =
         "Recherche de votre position...";
 
-    navigator.geolocation.getCurrentPosition(
+    navigator.geolocation.watchPosition(
         onSuccess,
         onError,
         {
-            enableHighAccuracy: true
+            enableHighAccuracy: true,
+            maximumAge: 1000,
+            timeout: 10000
         }
     );
 });
@@ -27,25 +31,38 @@ async function onSuccess(position) {
 
     try {
 
-        const bars =
-            await getNearbyBars(
-                userLat,
-                userLon
-            );
+        // On charge les bars une seule fois
+        if (!nearestBar) {
 
-        if (!bars.length) {
+            const bars =
+                await getNearbyBars(
+                    userLat,
+                    userLon
+                );
 
-            statusDiv.innerHTML =
-                "Aucun bar trouvé 🍺";
+            if (!bars.length) {
 
-            return;
+                statusDiv.innerHTML =
+                    "Aucun bar trouvé 🍺";
+
+                return;
+            }
+
+            nearestBar =
+                findNearestBar(
+                    userLat,
+                    userLon,
+                    bars
+                );
         }
 
-        const nearestBar =
-            findNearestBar(
+        // Distance mise à jour en live
+        const distance =
+            haversineDistance(
                 userLat,
                 userLon,
-                bars
+                nearestBar.lat,
+                nearestBar.lon
             );
 
         const bearing =
@@ -73,7 +90,7 @@ async function onSuccess(position) {
                 font-size:48px;
                 margin-top:15px;
             ">
-                ${nearestBar.distance.toFixed(0)} m
+                ${distance.toFixed(0)} m
             </div>
 
             <div style="
@@ -120,29 +137,18 @@ out body;
         }
     );
 
-    console.log(
-        "Overpass status:",
-        response.status
-    );
+    console.log("Overpass status:", response.status);
 
     if (!response.ok) {
-
-        throw new Error(
-            "Overpass indisponible"
-        );
+        throw new Error("Overpass indisponible");
     }
 
-    const data =
-        await response.json();
+    const data = await response.json();
 
     return data.elements || [];
 }
 
-function findNearestBar(
-    userLat,
-    userLon,
-    bars
-) {
+function findNearestBar(userLat, userLon, bars) {
 
     let nearestBar = null;
     let minDistance = Infinity;
@@ -178,24 +184,12 @@ function findNearestBar(
     return nearestBar;
 }
 
-function calculateBearing(
-    lat1,
-    lon1,
-    lat2,
-    lon2
-) {
+function calculateBearing(lat1, lon1, lat2, lon2) {
 
-    const φ1 =
-        toRadians(lat1);
-
-    const φ2 =
-        toRadians(lat2);
-
-    const λ1 =
-        toRadians(lon1);
-
-    const λ2 =
-        toRadians(lon2);
+    const φ1 = toRadians(lat1);
+    const φ2 = toRadians(lat2);
+    const λ1 = toRadians(lon1);
+    const λ2 = toRadians(lon2);
 
     const y =
         Math.sin(λ2 - λ1) *
@@ -214,40 +208,21 @@ function calculateBearing(
         180 /
         Math.PI;
 
-    return (
-        bearing + 360
-    ) % 360;
+    return (bearing + 360) % 360;
 }
 
-function haversineDistance(
-    lat1,
-    lon1,
-    lat2,
-    lon2
-) {
+function haversineDistance(lat1, lon1, lat2, lon2) {
 
     const R = 6371000;
 
-    const dLat =
-        toRadians(lat2 - lat1);
-
-    const dLon =
-        toRadians(lon2 - lon1);
+    const dLat = toRadians(lat2 - lat1);
+    const dLon = toRadians(lon2 - lon1);
 
     const a =
-        Math.sin(dLat / 2) ** 2
-        +
-        Math.cos(
-            toRadians(lat1)
-        )
-        *
-        Math.cos(
-            toRadians(lat2)
-        )
-        *
-        Math.sin(
-            dLon / 2
-        ) ** 2;
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRadians(lat1)) *
+        Math.cos(toRadians(lat2)) *
+        Math.sin(dLon / 2) ** 2;
 
     const c =
         2 *
@@ -261,29 +236,17 @@ function haversineDistance(
 
 function toRadians(degrees) {
 
-    return (
-        degrees *
-        Math.PI /
-        180
-    );
+    return degrees * Math.PI / 180;
 }
 
-window.addEventListener(
-    "deviceorientation",
-    (event) => {
+window.addEventListener("deviceorientation", (event) => {
 
-        if (
-            event.alpha == null
-        ) {
-            return;
-        }
+    if (event.alpha == null) return;
 
-        compass.style.transform =
-            `rotate(${event.alpha}deg)`;
+    compass.style.transform =
+        `rotate(${event.alpha}deg)`;
 
-        debugDiv.innerHTML = `
-            orientation :
-            ${event.alpha.toFixed(0)}°
-        `;
-    }
-);
+    debugDiv.innerHTML = `
+        orientation : ${event.alpha.toFixed(0)}°
+    `;
+});
