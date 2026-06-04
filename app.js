@@ -5,7 +5,6 @@ const debugDiv = document.getElementById("debug");
 
 let targetBearing = null;
 let currentHeading = null;
-let compassRotation = 0;
 let orientationListenerAdded = false;
 let watchId = null;
 let nearestBar = null;
@@ -50,15 +49,20 @@ async function initDeviceOrientation() {
                 window.addEventListener("deviceorientation", onDeviceOrientation);
                 orientationListenerAdded = true;
             } else {
-                debugDiv.innerHTML = "Permission orientation refusée";
+                debugDiv.innerHTML =
+                    "Permission orientation refusée — vérifiez les permissions Brave / Shields.";
             }
         } catch (error) {
             console.warn("Erreur permission orientation", error);
-            debugDiv.innerHTML = "Impossible d'accéder au capteur d'orientation";
+            debugDiv.innerHTML =
+                "Impossible d'accéder au capteur d'orientation — vérifiez Brave / Shields et HTTPS.";
         }
-    } else {
+    } else if (typeof DeviceOrientationEvent !== "undefined") {
         window.addEventListener("deviceorientation", onDeviceOrientation);
         orientationListenerAdded = true;
+    } else {
+        debugDiv.innerHTML =
+            "Capteur d'orientation non disponible sur ce navigateur. La boussole ne fonctionnera pas.";
     }
 }
 
@@ -299,14 +303,8 @@ function updateCompass() {
         return;
     }
 
-    const desiredRotation = getShortestRotation(targetBearing, currentHeading);
-    const rotationDelta = getShortestRotation(desiredRotation, compassRotation);
-    compassRotation += rotationDelta;
-    compass.style.transform = `rotate(${compassRotation}deg)`;
-}
-
-function getShortestRotation(target, current) {
-    return ((target - current + 540) % 360) - 180;
+    const rotation = targetBearing - currentHeading;
+    compass.style.transform = `rotate(${rotation}deg)`;
 }
 
 window.addEventListener("load", () => {
