@@ -232,13 +232,12 @@ window.addEventListener(
         if (event.alpha == null)
             return;
 
-        const heading =
-            event.alpha;
-
-        const rotation =
-            targetBearing - heading;
+        statusDiv.innerHTML = `
+            Orientation téléphone :
+            ${event.alpha.toFixed(0)}°
+        `;
 
         compass.style.transform =
-            `rotate(${rotation}deg)`;
+            `rotate(${event.alpha}deg)`;
     }
 );
