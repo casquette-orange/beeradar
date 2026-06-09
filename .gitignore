@@ -1,0 +1,8 @@
+# Documents Word
+*.docx
+
+# Fichiers temporaires Word
+~$*
+
+# Fichiers temporaires Windows/Office
+*.tmp

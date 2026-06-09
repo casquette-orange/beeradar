@@ -1,28 +1,14 @@
 # Beeradar
 
-Beeradar est une application web légère qui trouve le bar le plus proche et oriente l'utilisateur vers lui.
+Beeradar est une application mobile qui permet d’identifier le bar le plus proche. L’application ne doit pas être utilisée sobre mais doit aider son utilisateur à pouvoir économiser ses ressources intellectuelles pour se concentrer uniquement sur ce qui compte : trouver du ravitaillement.
 
-## Fonctionnalités
-
-- localisation de l'utilisateur via `navigator.geolocation`
-- recherche de bars à proximité avec l'API Overpass OpenStreetMap
-- calcul de la distance en mètres avec la formule de Haversine
-- calcul de l'azimut pour indiquer la direction du bar
-- boussole visuelle qui pivote selon l'orientation du téléphone
 
 ## Comment utiliser
 
-1. Ouvrir `index.html` via HTTPS ou un serveur local.
+1. (pour le moment sans application appstore) Sur smartphone, aller a l'adresse : https://casquette-orange.github.io/beeradar/
 2. Cliquer sur le bouton `Trouver un bar`.
-3. Accepter la localisation GPS.
-4. Si disponible, autoriser l'accès au capteur d'orientation pour activer la boussole.
-
-## Limitations
-
-- nécessite un accès HTTPS/serveur local pour la géolocalisation et les capteurs mobiles
-- la boussole fonctionne mieux sur mobile et dans les navigateurs qui exposent `deviceorientation`
-- Safari iOS demande souvent une autorisation explicite du capteur d'orientation
-- l'application dépend de la disponibilité du service Overpass API
+3. Si demandé, accepter la localisation GPS.
+4. Si demandé, autoriser l'accès au capteur d'orientation pour activer la boussole.
 
 ## Structure du projet
 
