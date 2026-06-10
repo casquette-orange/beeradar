@@ -14,7 +14,7 @@ jobs:
       - name: Vérification des fichiers
         run: |
           test -f index.html
-          test -f script.js
+          test -f app.js
           test -f style.css
 
       - name: Build OK
