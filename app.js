@@ -2,7 +2,10 @@ const button = document.getElementById("searchButton");
 const statusDiv = document.getElementById("status");
 const compass = document.getElementById("compass");
 const debugDiv = document.getElementById("debug");
+const arrow = document.getElementById("arrow");
 
+let currentBearing = 0;
+let currentOrientation = 0;
 let nearestBar = null;
 
 button.addEventListener("click", () => {
@@ -72,6 +75,10 @@ async function onSuccess(position) {
                 nearestBar.lat,
                 nearestBar.lon
             );
+
+        currentBearing = bearing;
+
+        updateCompass();
 
         statusDiv.innerHTML = `
             <div style="font-size:32px">
@@ -243,10 +250,21 @@ window.addEventListener("deviceorientation", (event) => {
 
     if (event.alpha == null) return;
 
-    compass.style.transform =
-        `rotate(${event.alpha}deg)`;
+    currentOrientation = event.alpha;
+
+    updateCompass();
 
     debugDiv.innerHTML = `
         orientation : ${event.alpha.toFixed(0)}°
     `;
 });
+
+function updateCompass() {
+
+    const angleVersBar =
+        currentBearing -
+        currentOrientation;
+
+    arrow.style.transform =
+        `translate(-50%, -50%) rotate(${angleVersBar}deg)`;
+}
