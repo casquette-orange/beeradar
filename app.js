@@ -1,20 +1,25 @@
+// declarer 4 constante
 const button = document.getElementById("searchButton");
 const statusDiv = document.getElementById("status");
-const compass = document.getElementById("compass");
 const debugDiv = document.getElementById("debug");
 const arrow = document.getElementById("arrow");
 
-let currentBearing = 0;
-let currentOrientation = 0;
+// declarer 3 variables
+let currentBearing = 0; //orientation du telephone vers le bar
+let currentOrientation = 0; //orientation du tel
 let nearestBar = null;
 
-button.addEventListener("click", () => {
+// rajoute a la constante button un evenement en ecoute pour permettre le clique puis la recherche du bar le plus proche
+button.addEventListener("click", startSearch);
+
+// permet de demarrer la recherche de bar
+function startSearch() {
 
     statusDiv.innerHTML =
         "Recherche de votre position...";
 
     navigator.geolocation.watchPosition(
-        onSuccess,
+        onPositionUpdate,
         onError,
         {
             enableHighAccuracy: true,
@@ -22,26 +27,26 @@ button.addEventListener("click", () => {
             timeout: 10000
         }
     );
-});
+}
 
-async function onSuccess(position) {
+// fonction principale permettant de mettre a jour en temps reel la recherche
+async function onPositionUpdate(position) {
 
     const userLat = position.coords.latitude;
     const userLon = position.coords.longitude;
 
-    statusDiv.innerHTML =
-        "Recherche des bars...";
-
     try {
 
-        // On charge les bars une seule fois
         if (!nearestBar) {
+
+            statusDiv.innerHTML =
+                "Recherche des bars...";
 
             const bars =
                 await getNearbyBars(
                     userLat,
                     userLon
-                );
+                ); // 
 
             if (!bars.length) {
 
@@ -59,7 +64,6 @@ async function onSuccess(position) {
                 );
         }
 
-        // Distance mise à jour en live
         const distance =
             haversineDistance(
                 userLat,
@@ -68,7 +72,7 @@ async function onSuccess(position) {
                 nearestBar.lon
             );
 
-        const bearing =
+        currentBearing =
             calculateBearing(
                 userLat,
                 userLon,
@@ -76,7 +80,12 @@ async function onSuccess(position) {
                 nearestBar.lon
             );
 
-        currentBearing = bearing;
+        // DEBUG
+        console.log(
+            "currentBearing =",
+            currentBearing
+        );
+        //
 
         updateCompass();
 
@@ -104,7 +113,7 @@ async function onSuccess(position) {
                 margin-top:10px;
                 font-size:20px;
             ">
-                Direction : ${bearing.toFixed(0)}°
+                Direction : ${currentBearing.toFixed(0)}°
             </div>
         `;
 
@@ -123,6 +132,38 @@ function onError(error) {
         `Erreur GPS : ${error.message}`;
 }
 
+window.addEventListener(
+    "deviceorientation",
+    (event) => {
+
+        if (event.alpha == null) {
+            return;
+        }
+
+        currentOrientation =
+            event.alpha;
+
+        updateCompass();
+    }
+);
+
+function updateCompass() {
+
+    const angleVersBar =
+        currentBearing +
+        currentOrientation;
+
+    arrow.style.transform =
+        `translate(-50%, -50%) rotate(${angleVersBar}deg)`;
+
+    debugDiv.innerHTML = `
+        bearing : ${currentBearing.toFixed(0)}°<br>
+        orientation : ${currentOrientation.toFixed(0)}°<br>
+        angle : ${angleVersBar.toFixed(0)}°
+    `;
+}
+
+// fonction qui permet de recuperer les bars les plus proche
 async function getNearbyBars(lat, lon) {
 
     const radius = 1000;
@@ -136,28 +177,36 @@ async function getNearbyBars(lat, lon) {
 out body;
 `;
 
-    const response = await fetch(
-        "https://overpass-api.de/api/interpreter",
-        {
-            method: "POST",
-            body: query
-        }
-    );
-
-    console.log("Overpass status:", response.status);
+    const response =
+        await fetch(
+            "https://overpass-api.de/api/interpreter",
+            {
+                method: "POST",
+                body: query
+            }
+        );
 
     if (!response.ok) {
-        throw new Error("Overpass indisponible");
+
+        throw new Error(
+            "Overpass indisponible"
+        );
     }
 
-    const data = await response.json();
+    const data =
+        await response.json();
 
     return data.elements || [];
 }
 
-function findNearestBar(userLat, userLon, bars) {
 
-    let nearestBar = null;
+function findNearestBar(
+    userLat,
+    userLon,
+    bars
+) {
+
+    let nearest = null;
     let minDistance = Infinity;
 
     for (const bar of bars) {
@@ -174,24 +223,27 @@ function findNearestBar(userLat, userLon, bars) {
 
             minDistance = distance;
 
-            nearestBar = {
+            nearest = {
 
                 name:
                     bar.tags?.name ||
                     "Bar inconnu",
 
                 lat: bar.lat,
-                lon: bar.lon,
-
-                distance
+                lon: bar.lon
             };
         }
     }
 
-    return nearestBar;
+    return nearest;
 }
 
-function calculateBearing(lat1, lon1, lat2, lon2) {
+function calculateBearing(
+    lat1,
+    lon1,
+    lat2,
+    lon2
+) {
 
     const φ1 = toRadians(lat1);
     const φ2 = toRadians(lat2);
@@ -210,20 +262,30 @@ function calculateBearing(lat1, lon1, lat2, lon2) {
         Math.cos(φ2) *
         Math.cos(λ2 - λ1);
 
-    let bearing =
+    const bearing =
         Math.atan2(y, x) *
         180 /
         Math.PI;
 
-    return (bearing + 360) % 360;
+    return (
+        bearing + 360
+    ) % 360;
 }
 
-function haversineDistance(lat1, lon1, lat2, lon2) {
+function haversineDistance(
+    lat1,
+    lon1,
+    lat2,
+    lon2
+) {
 
     const R = 6371000;
 
-    const dLat = toRadians(lat2 - lat1);
-    const dLon = toRadians(lon2 - lon1);
+    const dLat =
+        toRadians(lat2 - lat1);
+
+    const dLon =
+        toRadians(lon2 - lon1);
 
     const a =
         Math.sin(dLat / 2) ** 2 +
@@ -243,28 +305,9 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 
 function toRadians(degrees) {
 
-    return degrees * Math.PI / 180;
-}
-
-window.addEventListener("deviceorientation", (event) => {
-
-    if (event.alpha == null) return;
-
-    currentOrientation = event.alpha;
-
-    updateCompass();
-
-    debugDiv.innerHTML = `
-        orientation : ${event.alpha.toFixed(0)}°
-    `;
-});
-
-function updateCompass() {
-
-    const angleVersBar =
-        currentBearing -
-        currentOrientation;
-
-    arrow.style.transform =
-        `translate(-50%, -50%) rotate(${angleVersBar}deg)`;
+    return (
+        degrees *
+        Math.PI /
+        180
+    );
 }
