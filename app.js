@@ -1,17 +1,29 @@
-// declarer 4 constante
+// ============================================================
+// BEER RADAR - app.js
+// Geolocalisation + recherche du bar le plus proche
+// + boussole (oriente vers le nord) + fleche (oriente vers le bar)
+// ============================================================
+
+// declarer les constantes liees aux elements du DOM
 const button = document.getElementById("searchButton");
 const statusDiv = document.getElementById("status");
 const debugDiv = document.getElementById("debug");
 const arrow = document.getElementById("arrow");
-const compassRose = document.getElementById("compassRose")
+const compassRose = document.getElementById("compassRose");
 
-// declarer 3 variables
-let currentBearing = 0; //orientation du telephone vers le bar
-let currentOrientation = 0; //orientation du tel
-let nearestBar = null;
+// declarer les variables d'etat de l'appli
+let currentBearing = 0;     // direction (en degres, 0 = nord) vers le bar le plus proche
+let currentOrientation = 0; // direction (en degres, 0 = nord) vers laquelle pointe le telephone
+let nearestBar = null;      // le bar le plus proche trouve
+let orientationListenerAdded = false; // garde-fou contre les doubles ecouteurs
 
 // rajoute a la constante button un evenement en ecoute pour permettre le clique puis la recherche du bar le plus proche
 button.addEventListener("click", startSearch);
+
+
+// ============================================================
+// DEMARRAGE DE LA RECHERCHE
+// ============================================================
 
 // permet de demarrer la recherche de bar
 function startSearch() {
@@ -19,6 +31,35 @@ function startSearch() {
     statusDiv.innerHTML =
         "Recherche de votre position...";
 
+    // demande la permission d'utiliser le capteur d'orientation (obligatoire sur iOS 13+)
+    // sur Android cette fonction n'existe pas, donc on ecoute directement
+    if (typeof DeviceOrientationEvent !== "undefined" &&
+        typeof DeviceOrientationEvent.requestPermission === "function") {
+
+        DeviceOrientationEvent.requestPermission()
+            .then((permissionState) => {
+
+                if (permissionState === "granted") {
+                    if (!orientationListenerAdded) {
+                        window.addEventListener("deviceorientation", onOrientationUpdate);
+                        orientationListenerAdded = true;
+                    }
+                } else {
+                    statusDiv.innerHTML =
+                        "Permission boussole refusée";
+                }
+            })
+            .catch(console.error);
+
+    } else {
+
+        if (!orientationListenerAdded) {
+            window.addEventListener("deviceorientation", onOrientationUpdate);
+            orientationListenerAdded = true;
+        }
+    }
+
+    // demarre le suivi GPS en continu
     navigator.geolocation.watchPosition(
         onPositionUpdate,
         onError,
@@ -30,7 +71,12 @@ function startSearch() {
     );
 }
 
-// fonction principale permettant de mettre a jour en temps reel la recherche
+
+// ============================================================
+// GESTION DE LA POSITION GPS
+// ============================================================
+
+// fonction principale appelee a chaque mise a jour de la position
 async function onPositionUpdate(position) {
 
     const userLat = position.coords.latitude;
@@ -38,6 +84,7 @@ async function onPositionUpdate(position) {
 
     try {
 
+        // si on n'a pas encore de bar cible, on en cherche un
         if (!nearestBar) {
 
             statusDiv.innerHTML =
@@ -47,7 +94,7 @@ async function onPositionUpdate(position) {
                 await getNearbyBars(
                     userLat,
                     userLon
-                ); // 
+                );
 
             if (!bars.length) {
 
@@ -65,6 +112,7 @@ async function onPositionUpdate(position) {
                 );
         }
 
+        // calcul distance + direction vers le bar cible
         const distance =
             haversineDistance(
                 userLat,
@@ -80,13 +128,6 @@ async function onPositionUpdate(position) {
                 nearestBar.lat,
                 nearestBar.lon
             );
-
-        // DEBUG
-        console.log(
-            "currentBearing =",
-            currentBearing
-        );
-        //
 
         updateCompass();
 
@@ -127,49 +168,71 @@ async function onPositionUpdate(position) {
     }
 }
 
+// fonction appelee si la geolocalisation echoue
 function onError(error) {
 
     statusDiv.innerHTML =
         `Erreur GPS : ${error.message}`;
 }
 
-window.addEventListener(
-    "deviceorientation",
-    (event) => {
 
-        if (event.alpha == null) {
-            return;
-        }
+// ============================================================
+// GESTION DE L'ORIENTATION DU TELEPHONE
+// ============================================================
 
-        currentOrientation =
-            event.alpha;
+// fonction appelee chaque fois que le telephone change d'orientation
+function onOrientationUpdate(event) {
 
-        updateCompass();
+    if (event.alpha == null) {
+        return;
     }
-);
 
+    // Sur iOS : webkitCompassHeading donne le cap magnetique reel (0-360, sens horaire depuis le nord)
+    // Sur Android : event.alpha donne la rotation autour de l'axe Z (0-360)
+    // Sans cette distinction, la boussole tourne dans le mauvais sens ou au mauvais rythme sur iOS
+    if (event.webkitCompassHeading != null) {
+        currentOrientation = event.webkitCompassHeading;
+    } else {
+        currentOrientation = event.alpha % 360;
+    }
+
+    updateCompass();
+}
+
+
+// ============================================================
+// MISE A JOUR VISUELLE DE LA BOUSSOLE
+// ============================================================
+
+// fait tourner le cadran vers le nord, et la fleche vers le bar
 function updateCompass() {
 
-    // rotation du cadran : compense l'orientation du téléphone
-    const angleRose = -currentOrientation;
+    // le cadran tourne a l'inverse du telephone, pour que le N reste toujours vers le vrai nord
+    const angleBoussole = -currentOrientation;
 
     compassRose.style.transform =
-        `translate(-50%, -50%) rotate(${angleRose}deg)`;
+        `translate(-50%, -50%) rotate(${angleBoussole}deg)`;
 
-    // rotation de la flèche : pointe vers le bar, compensée pareil
-    const angleVersBar = currentBearing - currentOrientation;
+    // la fleche pointe vers le bar : direction absolue du bar moins l'orientation du telephone
+    const angleFleche = currentBearing - currentOrientation;
 
     arrow.style.transform =
-        `translate(-50%, -50%) rotate(${angleVersBar}deg)`;
+        `translate(-50%, -50%) rotate(${angleFleche}deg)`;
 
     debugDiv.innerHTML = `
         bearing : ${currentBearing.toFixed(0)}°<br>
         orientation : ${currentOrientation.toFixed(0)}°<br>
-        angle flèche : ${angleVersBar.toFixed(0)}°<br>
-        angle cadran : ${angleRose.toFixed(0)}°
+        angle boussole : ${angleBoussole.toFixed(0)}°<br>
+        angle fleche : ${angleFleche.toFixed(0)}°
     `;
 }
-// fonction qui permet de recuperer les bars les plus proche
+
+
+// ============================================================
+// RECHERCHE DES BARS (API OVERPASS / OPENSTREETMAP)
+// ============================================================
+
+// fonction qui permet de recuperer les bars les plus proches
 async function getNearbyBars(lat, lon) {
 
     const radius = 1000;
@@ -205,7 +268,7 @@ out body;
     return data.elements || [];
 }
 
-
+// trouve le bar le plus proche parmi une liste de bars
 function findNearestBar(
     userLat,
     userLon,
@@ -244,6 +307,12 @@ function findNearestBar(
     return nearest;
 }
 
+
+// ============================================================
+// FONCTIONS MATHEMATIQUES (distance / direction / conversion)
+// ============================================================
+
+// calcule la direction (en degres, 0 = nord) entre deux points GPS
 function calculateBearing(
     lat1,
     lon1,
@@ -278,6 +347,7 @@ function calculateBearing(
     ) % 360;
 }
 
+// calcule la distance (en metres) entre deux points GPS
 function haversineDistance(
     lat1,
     lon1,
@@ -309,6 +379,7 @@ function haversineDistance(
     return R * c;
 }
 
+// convertit des degres en radians
 function toRadians(degrees) {
 
     return (
