@@ -6,3 +6,6 @@
 
 # Fichiers temporaires Windows/Office
 *.tmp
+
+# la doc
+docs/*

@@ -3,6 +3,7 @@ const button = document.getElementById("searchButton");
 const statusDiv = document.getElementById("status");
 const debugDiv = document.getElementById("debug");
 const arrow = document.getElementById("arrow");
+const compassRose = document.getElementById("compassRose")
 
 // declarer 3 variables
 let currentBearing = 0; //orientation du telephone vers le bar
@@ -149,9 +150,14 @@ window.addEventListener(
 
 function updateCompass() {
 
-    const angleVersBar =
-        currentBearing +
-        currentOrientation;
+    // rotation du cadran : compense l'orientation du téléphone
+    const angleRose = -currentOrientation;
+
+    compassRose.style.transform =
+        `translate(-50%, -50%) rotate(${angleRose}deg)`;
+
+    // rotation de la flèche : pointe vers le bar, compensée pareil
+    const angleVersBar = currentBearing - currentOrientation;
 
     arrow.style.transform =
         `translate(-50%, -50%) rotate(${angleVersBar}deg)`;
@@ -159,10 +165,10 @@ function updateCompass() {
     debugDiv.innerHTML = `
         bearing : ${currentBearing.toFixed(0)}°<br>
         orientation : ${currentOrientation.toFixed(0)}°<br>
-        angle : ${angleVersBar.toFixed(0)}°
+        angle flèche : ${angleVersBar.toFixed(0)}°<br>
+        angle cadran : ${angleRose.toFixed(0)}°
     `;
 }
-
 // fonction qui permet de recuperer les bars les plus proche
 async function getNearbyBars(lat, lon) {
 
